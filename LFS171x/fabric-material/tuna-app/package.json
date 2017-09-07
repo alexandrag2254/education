@@ -1,0 +1,20 @@
+{
+    "name": "Fabric-tuna-app",
+    "version": "1.0.0",
+    "description": "Hyperledger Fabric Mooc Sample Application",
+    "main": "oceans.js",
+    "dependencies": {
+        "fabric-ca-client": "^1.0.0",
+        "fabric-client": "^1.0.0"
+    },
+    "license": "Apache-2.0",
+    "keywords": [
+        "Hyperledger",
+        "Fabric",
+        "Oceans",
+        "Tuna",
+        "Fishing",
+        "Sample",
+        "Application"
+    ]
+}
