@@ -107,7 +107,7 @@ const rejectTransfer = (asset, signer, state) => {
 // Handler for JSON encoded payloads
 class JSONHandler extends TransactionHandler {
   constructor () {
-    console.log('Initializing JSON handler for Transfer-Chain')
+    console.log('Initializing JSON handler for Sawtooth Tuna Chain')
     super(FAMILY, '0.0', 'application/json', [PREFIX])
   }
 

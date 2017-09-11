@@ -43,20 +43,11 @@ type SmartContract struct {
 
 // Define Tuna structure, with 6 properties.  Structure tags are used by encoding/json library
 type Tuna struct {
-	Id   string `json:"id"`
+	Id string `json:"id"`
 	Vessel string `json:"vessel"`
 	Timestamp string `json:"timestamp"`
-	Longitude  string `json:"longitude"`
-	Latitude string `json:"latitude"`
+	Location  string `json:"location"`
 	Holder  string `json:"holder"`
-}
-
-/*
- * The Init method is called when the Smart Contract "tuna-chaincode" is instantiated by the Fabric network
- * Best practice is to have any Ledger initialization in separate function -- see initLedger()
- */
-func (s *SmartContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
-	return shim.Success(nil)
 }
 
 /*
@@ -93,18 +84,22 @@ func (s *SmartContract) queryTuna(APIstub shim.ChaincodeStubInterface, args []st
 	return shim.Success(tunaAsBytes)
 }
 
+/*
+ * The Init method is called when the Smart Contract "tuna-chaincode" is instantiated by the Fabric network
+ * Best practice is to have any Ledger initialization in separate function -- see initLedger()
+ */
 func (s *SmartContract) initLedger(APIstub shim.ChaincodeStubInterface) sc.Response {
 	tuna := []Tuna{
-		Tuna{Id: "00001", Vessel: "923F", Longitude: "67.0006", Latitude: "-70.5476", Timestamp: "1504054225", Holder: "Miriam"},
-		Tuna{Id: "00002", Vessel: "M83T", Longitude: "91.2395", Latitude: "-49.4594", Timestamp: "1504057825", Holder: "Dave"},
-		Tuna{Id: "00003", Vessel: "T012", Longitude: "58.0148", Latitude: "59.01391", Timestamp: "1493517025", Holder: "Igor"},
-		Tuna{Id: "00004", Vessel: "P490", Longitude: "-45.0945", Latitude: "0.7949", Timestamp: "1496105425", Holder: "Amalea"},
-		Tuna{Id: "00005", Vessel: "S439", Longitude: "-107.6043", Latitude: "19.5003", Timestamp: "1493512301", Holder: "Rafa"},
-		Tuna{Id: "00006", Vessel: "J205", Longitude: "-155.2304", Latitude: "-15.8723", Timestamp: "1494117101", Holder: "Shen"},
-		Tuna{Id: "00007", Vessel: "S22L", Longitude: "103.8842", Latitude: "22.1277", Timestamp: "1496104301", Holder: "Leila"},
-		Tuna{Id: "00008", Vessel: "EI89", Longitude: "-132.3207", Latitude: "-34.0983", Timestamp: "1485066691", Holder: "Yuan"},
-		Tuna{Id: "00009", Vessel: "129R", Longitude: "153.0054", Latitude: "12.6429", Timestamp: "1485153091", Holder: "Carlo"},
-		Tuna{Id: "00010", Vessel: "49W4", Longitude: "51.9435", Latitude: "8.2735", Timestamp: "1487745091", Holder: "Fatima"},
+		Tuna{Id: "00001", Vessel: "923F", Location: "67.0006, -70.5476", Timestamp: "1504054225", Holder: "Miriam"},
+		Tuna{Id: "00002", Vessel: "M83T", Location: "91.2395, -49.4594", Timestamp: "1504057825", Holder: "Dave"},
+		Tuna{Id: "00003", Vessel: "T012", Location: "58.0148, 59.01391", Timestamp: "1493517025", Holder: "Igor"},
+		Tuna{Id: "00004", Vessel: "P490", Location: "-45.0945, 0.7949", Timestamp: "1496105425", Holder: "Amalea"},
+		Tuna{Id: "00005", Vessel: "S439", Location: "-107.6043, 19.5003", Timestamp: "1493512301", Holder: "Rafa"},
+		Tuna{Id: "00006", Vessel: "J205", Location: "-155.2304, -15.8723", Timestamp: "1494117101", Holder: "Shen"},
+		Tuna{Id: "00007", Vessel: "S22L", Location: "103.8842, 22.1277", Timestamp: "1496104301", Holder: "Leila"},
+		Tuna{Id: "00008", Vessel: "EI89", Location: "-132.3207, -34.0983", Timestamp: "1485066691", Holder: "Yuan"},
+		Tuna{Id: "00009", Vessel: "129R", Location: "153.0054, 12.6429", Timestamp: "1485153091", Holder: "Carlo"},
+		Tuna{Id: "00010", Vessel: "49W4", Location: "51.9435, 8.2735", Timestamp: "1487745091", Holder: "Fatima"},
 	}
 
 	i := 0
@@ -121,11 +116,11 @@ func (s *SmartContract) initLedger(APIstub shim.ChaincodeStubInterface) sc.Respo
 
 func (s *SmartContract) recordTuna(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
 
-	if len(args) != 6 {
-		return shim.Error("Incorrect number of arguments. Expecting 6")
+	if len(args) != 5 {
+		return shim.Error("Incorrect number of arguments. Expecting 5")
 	}
 
-	var tuna = Tuna{ Id: args[1], Vessel: args[2], Longitude: args[3], Latitude: args[4], Timestamp: args[5], Holder: args[6]}
+	var tuna = Tuna{ Id: args[1], Vessel: args[2], Location: args[3], Timestamp: args[4], Holder: args[5]}
 
 	tunaAsBytes, _ := json.Marshal(tuna)
 	APIstub.PutState(args[0], tunaAsBytes)
