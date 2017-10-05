@@ -49,13 +49,13 @@ Promise.resolve().then(() => {
     tx_id = client.newTransactionID();
     console.log("Assigning transaction_id: ", tx_id._transaction_id);
    
-    // recordTuna - requires 7 args, ID, vessel, location, timestamp,holder - ex: args: ['TUNA10', '0001', 'Hound', '-12.021, 28.012', '1504054225', 'Hansel'], 
+    // recordTuna - requires 6 args, ID, vessel, location, timestamp,holder - ex: args: ['TUNA10', '0001', 'Hound', '-12.021, 28.012', '1504054225', 'Hansel'], 
     // send proposal to endorser
     var request = {
         targets: targets,
         chaincodeId: options.chaincode_id,
         fcn: 'recordTuna',
-        args: ['TUNA10', '0001', 'Hound', '28.012, 150.225', 'Hansel'],
+        args: ['TUNA10','239482392', '28.012, 150.225', '0923T', "Hansel"],
         chainId: options.channel_id,
         txId: tx_id
     };

@@ -1,4 +1,3 @@
-
 // Import dependencies
 // Import the chaincode shim package and the peer protobuf package
 

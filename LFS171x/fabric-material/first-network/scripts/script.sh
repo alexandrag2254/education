@@ -10,6 +10,7 @@ echo
 echo "Build your first network (BYFN) end-to-end test"
 echo
 CHANNEL_NAME="$1"
+DELAY="$2"
 : ${CHANNEL_NAME:="mychannel"}
 : ${TIMEOUT:="60"}
 COUNTER=1
@@ -38,7 +39,6 @@ setGlobals () {
 			CORE_PEER_ADDRESS=peer0.org1.example.com:7051
 		else
 			CORE_PEER_ADDRESS=peer1.org1.example.com:7051
-			CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
 		fi
 	else
 		CORE_PEER_LOCALMSPID="Org2MSP"
@@ -82,10 +82,11 @@ updateAnchorPeers() {
 	cat log.txt
 	verifyResult $res "Anchor peer update failed"
 	echo "===================== Anchor peers for org \"$CORE_PEER_LOCALMSPID\" on \"$CHANNEL_NAME\" is updated successfully ===================== "
+	sleep $DELAY
 	echo
 }
 
-## Sometimes Join takes time hence RETRY atleast for 5 times
+## Sometimes Join takes time hence RETRY at least for 5 times
 joinWithRetry () {
 	peer channel join -b $CHANNEL_NAME.block  >&log.txt
 	res=$?
@@ -93,7 +94,7 @@ joinWithRetry () {
 	if [ $res -ne 0 -a $COUNTER -lt $MAX_RETRY ]; then
 		COUNTER=` expr $COUNTER + 1`
 		echo "PEER$1 failed to join the channel, Retry after 2 seconds"
-		sleep 2
+		sleep $DELAY
 		joinWithRetry $1
 	else
 		COUNTER=1
@@ -106,7 +107,7 @@ joinChannel () {
 		setGlobals $ch
 		joinWithRetry $ch
 		echo "===================== PEER$ch joined on the channel \"$CHANNEL_NAME\" ===================== "
-		sleep 2
+		sleep $DELAY
 		echo
 	done
 }
@@ -114,7 +115,7 @@ joinChannel () {
 installChaincode () {
 	PEER=$1
 	setGlobals $PEER
-	peer chaincode install -n mycc -v 1.0 -p github.com/hyperledger/fabric/examples/chaincode/go/chaincode_example02 >&log.txt
+	peer chaincode install -n mycc -v 1.0 -p github.com/hyperledger/education/LFS171x/fabric-material/chaincode/chaincode_example02 >&log.txt
 	res=$?
 	cat log.txt
         verifyResult $res "Chaincode installation on remote peer PEER$PEER has Failed"
@@ -150,7 +151,7 @@ chaincodeQuery () {
   # we either get a successful response, or reach TIMEOUT
   while test "$(($(date +%s)-starttime))" -lt "$TIMEOUT" -a $rc -ne 0
   do
-     sleep 3
+     sleep $DELAY
      echo "Attempting to Query PEER$PEER ...$(($(date +%s)-starttime)) secs"
      peer chaincode query -C $CHANNEL_NAME -n mycc -c '{"Args":["query","a"]}' >&log.txt
      test $? -eq 0 && VALUE=$(cat log.txt | awk '/Query Result/ {print $NF}')

@@ -82,7 +82,7 @@ const acceptTransfer = (asset, signer, state) => {
     })
 }
 
-// Reject a transfer, clearing it
+// Reject a transfer
 const rejectTransfer = (asset, signer, state) => {
   const address = getTransferAddress(asset)
 
