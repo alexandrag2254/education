@@ -1,8 +1,6 @@
+## Hyperledger Fabric Sample Application
 
+This application demonstrates the creation and transfer of tuna fish shipments between actors leveraging Hyperledger Fabric in the supply chain. In this exercise we will set up the minimum number of nodes required to develop chaincode. It has a single peer and a single organization.
 
-
-
-The basic-network sets up the minimum number of nodes required to develop chaincode and a basic application. It only has a single peer and therefore a single organization as well.
-
-// if getting error about running ./startFabric.sh permission 
+## if getting error about running ./startFabric.sh permission 
 chmod a+x startFabric.sh 
