@@ -41,6 +41,7 @@ import (
 type SmartContract struct {
 }
 
+
 // Define Tuna structure, with 6 properties.  Structure tags are used by encoding/json library
 type Tuna struct {
 	Id string `json:"id"`
@@ -48,6 +49,14 @@ type Tuna struct {
 	Timestamp string `json:"timestamp"`
 	Location  string `json:"location"`
 	Holder  string `json:"holder"`
+}
+
+/*
+ * The Init method is called when the Smart Contract "tuna-chaincode" is instantiated by the blockchain network
+ * Best practice is to have any Ledger initialization in separate function -- see initLedger()
+ */
+func (s *SmartContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
+	return shim.Success(nil)
 }
 
 /*
@@ -120,7 +129,7 @@ func (s *SmartContract) recordTuna(APIstub shim.ChaincodeStubInterface, args []s
 		return shim.Error("Incorrect number of arguments. Expecting 5")
 	}
 
-	var tuna = Tuna{ Id: args[1], Vessel: args[2], Location: args[3], Timestamp: args[4], Holder: args[5]}
+	var tuna = Tuna{ Id: args[0], Vessel: args[1], Location: args[2], Timestamp: args[3], Holder: args[4]}
 
 	tunaAsBytes, _ := json.Marshal(tuna)
 	APIstub.PutState(args[0], tunaAsBytes)
