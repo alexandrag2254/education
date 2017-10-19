@@ -1,14 +1,15 @@
 // nodejs server setup 
 
 // call the packages we need
-var express     = require('express');        // call express
-var app         = express();                 // define our app using express
-var bodyParser  = require('body-parser');
-var http        = require('http')
-var fs          = require('fs');
-var hfc 		= require('fabric-client');
-var path 		= require('path');
-var util 		= require('util');
+var express       = require('express');        // call express
+var app           = express();                 // define our app using express
+var bodyParser    = require('body-parser');
+var http          = require('http')
+var fs            = require('fs');
+var Fabric_Client = require('fabric-client');
+var path          = require('path');
+var util          = require('util');
+var os            = require('os');
 
 // Load all of our middleware
 // configure app to use bodyParser()
@@ -23,427 +24,447 @@ var app = express();
 // set up a static file server that points to the "client" directory
 app.use(express.static(path.join(__dirname, './client')));
 
+// Query all Tuna catches
 app.get('/all_tuna', function(req, res) {
-	console.log("getting all tuna from database: ")
+	console.log("getting all tuna from database: ");
 
-	var options = {
-	    wallet_path: path.join(__dirname, './creds'),
-	    user_id: 'PeerAdmin',
-	    channel_id: 'mychannel',
-	    chaincode_id: 'tuna-app',
-	    network_url: 'grpc://localhost:7051',
-	};
+	var fabric_client = new Fabric_Client();
 
-	var channel = {};
-	var client = null;
 
-	Promise.resolve().then(() => {
-	    console.log("Create a client and set the wallet location");
-	    client = new hfc();
-	    return hfc.newDefaultKeyValueStore({ path: options.wallet_path });
-	}).then((wallet) => {
-	    console.log("Set wallet path, and associate user ", options.user_id, " with application");
-	    client.setStateStore(wallet);
-	    return client.getUserContext(options.user_id, true);
-	}).then((user) => {
-	    console.log("Check user is enrolled, and set a query URL in the network");
-	    if (user === undefined || user.isEnrolled() === false) {
-	        console.error("User not defined, or not enrolled - error");
+	// setup the fabric network
+	var channel = fabric_client.newChannel('mychannel');
+	var peer = fabric_client.newPeer('grpc://localhost:7051');
+	channel.addPeer(peer);
+
+	//
+	var member_user = null;
+	var store_path = path.join(os.homedir(), '.hfc-key-store');
+	console.log('Store path:'+store_path);
+	var tx_id = null;
+
+	// create the key value store as defined in the fabric-client/config/default.json 'key-value-store' setting
+	Fabric_Client.newDefaultKeyValueStore({ path: store_path
+	}).then((state_store) => {
+	    // assign the store to the fabric client
+	    fabric_client.setStateStore(state_store);
+	    var crypto_suite = Fabric_Client.newCryptoSuite();
+	    // use the same location for the state store (where the users' certificate are kept)
+	    // and the crypto store (where the users' keys are kept)
+	    var crypto_store = Fabric_Client.newCryptoKeyStore({path: store_path});
+	    crypto_suite.setCryptoKeyStore(crypto_store);
+	    fabric_client.setCryptoSuite(crypto_suite);
+
+	    // get the enrolled user from persistence, this user will sign all requests
+	    return fabric_client.getUserContext('user1', true);
+	}).then((user_from_store) => {
+	    if (user_from_store && user_from_store.isEnrolled()) {
+	        console.log('Successfully loaded user1 from persistence');
+	        member_user = user_from_store;
+	    } else {
+	        throw new Error('Failed to get user1.... run registerUser.js');
 	    }
-	    channel = client.newChannel(options.channel_id);
-	    channel.addPeer(client.newPeer(options.network_url));
-	    return;
-	}).then(() => {
-	    console.log("Make query");
-	    var transaction_id = client.newTransactionID();
-	    console.log("Assigning transaction_id: ", transaction_id._transaction_id);
 
 	    // queryAllTuna - requires no arguments , ex: args: [''],
 	    const request = {
-	        chaincodeId: options.chaincode_id,
-	        txId: transaction_id,
+	        chaincodeId: 'tuna-app',
+	        txId: tx_id,
 	        fcn: 'queryAllTuna',
 	        args: ['']
 	    };
+
+	    // send the query proposal to the peer
 	    return channel.queryByChaincode(request);
 	}).then((query_responses) => {
-	    console.log("returned from query");
-	    if (!query_responses.length) {
-	        console.log("No payloads were returned from query");
+	    console.log("Query has completed, checking results");
+	    // query_responses could have more than one  results if there multiple peers were used as targets
+	    if (query_responses && query_responses.length == 1) {
+	        if (query_responses[0] instanceof Error) {
+	            console.error("error from query = ", query_responses[0]);
+	        } else {
+	            console.log("Response is ", query_responses[0].toString());
+	        }
 	    } else {
-	        console.log("Query result count = ", query_responses.length)
+	        console.log("No payloads were returned from query");
 	    }
-	    if (query_responses[0] instanceof Error) {
-	        console.error("error from query = ", query_responses[0]);
-	    }
-	    
-	    console.log("Response is ", query_responses[0].toString());
-
-	    res.json(JSON.parse(query_responses[0].toString()));
-
 	}).catch((err) => {
-	    console.error("Caught Error", err);
+	    console.error('Failed to query successfully :: ' + err);
 	});
+
+
 
 });
 
+// Query specific Tuna catch
 app.get('/query_tuna/:id', function(req, res) {
-	console.log("querying a specific tuna catch: ")
+	console.log("querying a specific tuna catch: ");
 
-	var options = {
-	    wallet_path: path.join(__dirname, './creds'),
-	    user_id: 'PeerAdmin',
-	    channel_id: 'mychannel',
-	    chaincode_id: 'tuna-app',
-	    network_url: 'grpc://localhost:7051',
-	};
+	var fabric_client = new Fabric_Client();
 
-	var channel = {};
-	var client = null;
 
-	Promise.resolve().then(() => {
-	    console.log("Create a client and set the wallet location");
-	    client = new hfc();
-	    return hfc.newDefaultKeyValueStore({ path: options.wallet_path });
-	}).then((wallet) => {
-	    console.log("Set wallet path, and associate user ", options.user_id, " with application");
-	    client.setStateStore(wallet);
-	    return client.getUserContext(options.user_id, true);
-	}).then((user) => {
-	    console.log("Check user is enrolled, and set a query URL in the network");
-	    if (user === undefined || user.isEnrolled() === false) {
-	        console.error("User not defined, or not enrolled - error");
+	// setup the fabric network
+	var channel = fabric_client.newChannel('mychannel');
+	var peer = fabric_client.newPeer('grpc://localhost:7051');
+	channel.addPeer(peer);
+
+	//
+	var member_user = null;
+	var store_path = path.join(os.homedir(), '.hfc-key-store');
+	console.log('Store path:'+store_path);
+	var tx_id = null;
+
+	// create the key value store as defined in the fabric-client/config/default.json 'key-value-store' setting
+	Fabric_Client.newDefaultKeyValueStore({ path: store_path
+	}).then((state_store) => {
+	    // assign the store to the fabric client
+	    fabric_client.setStateStore(state_store);
+	    var crypto_suite = Fabric_Client.newCryptoSuite();
+	    // use the same location for the state store (where the users' certificate are kept)
+	    // and the crypto store (where the users' keys are kept)
+	    var crypto_store = Fabric_Client.newCryptoKeyStore({path: store_path});
+	    crypto_suite.setCryptoKeyStore(crypto_store);
+	    fabric_client.setCryptoSuite(crypto_suite);
+
+	    // get the enrolled user from persistence, this user will sign all requests
+	    return fabric_client.getUserContext('user1', true);
+	}).then((user_from_store) => {
+	    if (user_from_store && user_from_store.isEnrolled()) {
+	        console.log('Successfully loaded user1 from persistence');
+	        member_user = user_from_store;
+	    } else {
+	        throw new Error('Failed to get user1.... run registerUser.js');
 	    }
-	    channel = client.newChannel(options.channel_id);
-	    channel.addPeer(client.newPeer(options.network_url));
-	    return;
-	}).then(() => {
-	    console.log("Make query");
-	    var transaction_id = client.newTransactionID();
-	    console.log("Assigning transaction_id: ", transaction_id._transaction_id);
-	    id = "TUNA" + req.params.id;
+
 	    // queryTuna - requires 1 argument, ex: args: ['TUNA4'],
 	    const request = {
-	        chaincodeId: options.chaincode_id,
-	        txId: transaction_id,
+	        chaincodeId: 'tuna-app',
+	        txId: tx_id,
 	        fcn: 'queryTuna',
-	        args: [id]
+	        args: ['TUNA1']
 	    };
+
+	    // send the query proposal to the peer
 	    return channel.queryByChaincode(request);
 	}).then((query_responses) => {
-	    console.log("returned from query");
-	    if (!query_responses.length) {
-	        console.log("No payloads were returned from query");
+	    console.log("Query has completed, checking results");
+	    // query_responses could have more than one  results if there multiple peers were used as targets
+	    if (query_responses && query_responses.length == 1) {
+	        if (query_responses[0] instanceof Error) {
+	            console.error("error from query = ", query_responses[0]);
+	        } else {
+	            console.log("Response is ", query_responses[0].toString());
+	        }
 	    } else {
-	        console.log("Query result count = ", query_responses.length)
+	        console.log("No payloads were returned from query");
 	    }
-	    if (query_responses[0] instanceof Error) {
-	        console.error("error from query = ", query_responses[0]);
-	    }
-	    console.log("Response is ", query_responses[0].toString());
-		 res.json(JSON.parse(query_responses[0].toString()));
-
 	}).catch((err) => {
-	    console.error("Caught Error", err);
+	    console.error('Failed to query successfully :: ' + err);
 	});
+
+
+
 
 });
 
+// Change tuna holder 
 app.get('/change_holder/:holder', function(req, res) {
 	console.log("changing holder of tuna catch: ");
 
-	array = req.params.holder
-	var holder = array.split("-");
-	console.log(holder)
+	var fabric_client = new Fabric_Client();
 
-	var options = {
-	    wallet_path: path.join(__dirname, './creds'),
-	    user_id: 'PeerAdmin',
-	    channel_id: 'mychannel',
-	    chaincode_id: 'tuna-app',
-	    peer_url: 'grpc://localhost:7051',
-	    event_url: 'grpc://localhost:7053',
-	    orderer_url: 'grpc://localhost:7050'
-	};
+	// setup the fabric network
+	var channel = fabric_client.newChannel('mychannel');
+	var peer = fabric_client.newPeer('grpc://localhost:7051');
+	channel.addPeer(peer);
+	var order = fabric_client.newOrderer('grpc://localhost:7050')
+	channel.addOrderer(order);
 
-	var channel = {};
-	var client = null;
-	var targets = [];
+	var member_user = null;
+	var store_path = path.join(os.homedir(), '.hfc-key-store');
+	console.log('Store path:'+store_path);
 	var tx_id = null;
-	Promise.resolve().then(() => {
-	    console.log("Create a client and set the wallet location");
-	    client = new hfc();
-	    return hfc.newDefaultKeyValueStore({ path: options.wallet_path });
-	}).then((wallet) => {
-	    console.log("Set wallet path, and associate user ", options.user_id, " with application");
-	    client.setStateStore(wallet);
-	    return client.getUserContext(options.user_id, true);
-	}).then((user) => {
-	    console.log("Check user is enrolled, and set a query URL in the network");
-	    if (user === undefined || user.isEnrolled() === false) {
-	        console.error("User not defined, or not enrolled - error");
+
+
+	// create the key value store as defined in the fabric-client/config/default.json 'key-value-store' setting
+	Fabric_Client.newDefaultKeyValueStore({ path: store_path
+	}).then((state_store) => {
+	    // assign the store to the fabric client
+	    fabric_client.setStateStore(state_store);
+	    var crypto_suite = Fabric_Client.newCryptoSuite();
+	    // use the same location for the state store (where the users' certificate are kept)
+	    // and the crypto store (where the users' keys are kept)
+	    var crypto_store = Fabric_Client.newCryptoKeyStore({path: store_path});
+	    crypto_suite.setCryptoKeyStore(crypto_store);
+	    fabric_client.setCryptoSuite(crypto_suite);
+
+	    // get the enrolled user from persistence, this user will sign all requests
+	    return fabric_client.getUserContext('user1', true);
+	}).then((user_from_store) => {
+	    if (user_from_store && user_from_store.isEnrolled()) {
+	        console.log('Successfully loaded user1 from persistence');
+	        member_user = user_from_store;
+	    } else {
+	        throw new Error('Failed to get user1.... run registerUser.js');
 	    }
-	    channel = client.newChannel(options.channel_id);
-	    var peerObj = client.newPeer(options.peer_url);
-	    channel.addPeer(peerObj);
-	    channel.addOrderer(client.newOrderer(options.orderer_url));
-	    targets.push(peerObj);
-	    return;
-	}).then(() => {
-	    tx_id = client.newTransactionID();
+
+	    // get a transaction id object based on the current user assigned to fabric client
+	    tx_id = fabric_client.newTransactionID();
 	    console.log("Assigning transaction_id: ", tx_id._transaction_id);
-	   
+
 	    // changeTunaHolder - requires 2 args , ex: args: ['TUNA01', 'Barry'],
 	    // send proposal to endorser
 	    var request = {
 	        targets: targets,
 	        chaincodeId: options.chaincode_id,
 	        fcn: 'changeTunaHolder',
-	        args: ['TUNA'+holder[0], holder[1]],
-	        chainId: options.channel_id,
+	        args: ['TUNA1', 'Barry'],
+	        chainId: 'mychannel',
 	        txId: tx_id
 	    };
+
+	    // send the transaction proposal to the peers
 	    return channel.sendTransactionProposal(request);
 	}).then((results) => {
 	    var proposalResponses = results[0];
 	    var proposal = results[1];
-	    var header = results[2];
 	    let isProposalGood = false;
 	    if (proposalResponses && proposalResponses[0].response &&
 	        proposalResponses[0].response.status === 200) {
-	        isProposalGood = true;
-	        console.log('transaction proposal was good');
-	    } else {
-	        console.error('transaction proposal was bad');
-	    }
+	            isProposalGood = true;
+	            console.log('Transaction proposal was good');
+	        } else {
+	            console.error('Transaction proposal was bad');
+	        }
 	    if (isProposalGood) {
 	        console.log(util.format(
-	            'Successfully sent Proposal and received ProposalResponse: Status - %s, message - "%s", metadata - "%s", endorsement signature: %s',
-	            proposalResponses[0].response.status, proposalResponses[0].response.message,
-	            proposalResponses[0].response.payload, proposalResponses[0].endorsement.signature));
+	            'Successfully sent Proposal and received ProposalResponse: Status - %s, message - "%s"',
+	            proposalResponses[0].response.status, proposalResponses[0].response.message));
+
+	        // build up the request for the orderer to have the transaction committed
 	        var request = {
 	            proposalResponses: proposalResponses,
-	            proposal: proposal,
-	            header: header
+	            proposal: proposal
 	        };
-	        // set the transaction listener and set a timeout of 30sec
-	        // if the transaction did not get committed within the timeout period,
-	        // fail the test
-	        var transactionID = tx_id.getTransactionID();
-	        var eventPromises = [];
-	        let eh = client.newEventHub();
-	        eh.setPeerAddr(options.event_url);
-	        eh.connect();
 
+	        // set the transaction listener and set a timeout of 30 sec
+	        // if the transaction did not get committed within the timeout period,
+	        // report a TIMEOUT status
+	        var transaction_id_string = tx_id.getTransactionID(); //Get the transaction ID string to be used by the event processing
+	        var promises = [];
+
+	        var sendPromise = channel.sendTransaction(request);
+	        promises.push(sendPromise); //we want the send transaction first, so that we know where to check status
+
+	        // get an eventhub once the fabric client has a user assigned. The user
+	        // is required bacause the event registration must be signed
+	        let event_hub = fabric_client.newEventHub();
+	        event_hub.setPeerAddr('grpc://localhost:7053');
+
+	        // using resolve the promise so that result status may be processed
+	        // under the then clause rather than having the catch clause process
+	        // the status
 	        let txPromise = new Promise((resolve, reject) => {
 	            let handle = setTimeout(() => {
-	                eh.disconnect();
-	                reject();
-	            }, 30000);
-
-	            eh.registerTxEvent(transactionID, (tx, code) => {
+	                event_hub.disconnect();
+	                resolve({event_status : 'TIMEOUT'}); //we could use reject(new Error('Trnasaction did not complete within 30 seconds'));
+	            }, 3000);
+	            event_hub.connect();
+	            event_hub.registerTxEvent(transaction_id_string, (tx, code) => {
+	                // this is the callback for transaction event status
+	                // first some clean up of event listener
 	                clearTimeout(handle);
-	                eh.unregisterTxEvent(transactionID);
-	                eh.disconnect();
+	                event_hub.unregisterTxEvent(transaction_id_string);
+	                event_hub.disconnect();
 
+	                // now let the application know what happened
+	                var return_status = {event_status : code, tx_id : transaction_id_string};
 	                if (code !== 'VALID') {
-	                    console.error(
-	                        'The transaction was invalid, code = ' + code);
-	                    reject();
+	                    console.error('The transaction was invalid, code = ' + code);
+	                    resolve(return_status); // we could use reject(new Error('Problem with the tranaction, event status ::'+code));
 	                } else {
-	                    console.log(
-	                        'The transaction has been committed on peer ' +
-	                        eh._ep._endpoint.addr);
-	                    resolve();
+	                    console.log('The transaction has been committed on peer ' + event_hub._ep._endpoint.addr);
+	                    resolve(return_status);
 	                }
+	            }, (err) => {
+	                //this is the callback if something goes wrong with the event registration or processing
+	                reject(new Error('There was a problem with the eventhub ::'+err));
 	            });
 	        });
-	        eventPromises.push(txPromise);
-	        var sendPromise = channel.sendTransaction(request);
-	        return Promise.all([sendPromise].concat(eventPromises)).then((results) => {
-	            console.log(' event promise all complete and testing complete');
-	            return results[0]; // the first returned value is from the 'sendPromise' which is from the 'sendTransaction()' call
-	        }).catch((err) => {
-	            console.error(
-	                'Failed to send transaction and get notifications within the timeout period.'
-	            );
-	            return 'Failed to send transaction and get notifications within the timeout period.';
-	        });
+	        promises.push(txPromise);
+
+	        return Promise.all(promises);
 	    } else {
-	        console.error(
-	            'Failed to send Proposal or receive valid response. Response null or status is not 200. exiting...'
-	        );
-	        return 'Failed to send Proposal or receive valid response. Response null or status is not 200. exiting...';
+	        console.error('Failed to send Proposal or receive valid response. Response null or status is not 200. exiting...');
+	        throw new Error('Failed to send Proposal or receive valid response. Response null or status is not 200. exiting...');
 	    }
-	}, (err) => {
-	    console.error('Failed to send proposal due to error: ' + err.stack ? err.stack :
-	        err);
-	    return 'Failed to send proposal due to error: ' + err.stack ? err.stack :
-	        err;
-	}).then((response) => {
-	    if (response.status === 'SUCCESS') {
+	}).then((results) => {
+	    console.log('Send transaction promise and event listener promise have completed');
+	    // check the results in the order the promises were added to the promise all list
+	    if (results && results[0] && results[0].status === 'SUCCESS') {
 	        console.log('Successfully sent transaction to the orderer.');
-	        // return tx_id.getTransactionID();
-	        res.json(tx_id.getTransactionID())
 	    } else {
 	        console.error('Failed to order the transaction. Error code: ' + response.status);
-	        return 'Failed to order the transaction. Error code: ' + response.status;
 	    }
-	}, (err) => {
-	    console.error('Failed to send transaction due to error: ' + err.stack ? err
-	        .stack : err);
-	    return 'Failed to send transaction due to error: ' + err.stack ? err.stack :
-	        err;
-	});
 
+	    if(results && results[1] && results[1].event_status === 'VALID') {
+	        console.log('Successfully committed the change to the ledger by the peer');
+	    } else {
+	        console.log('Transaction failed to be committed to the ledger due to ::'+results[1].event_status);
+	    }
+	}).catch((err) => {
+	    console.error('Failed to invoke successfully :: ' + err);
+	});
 });
 
+
+// Record new tuna catch 
 app.get('/record_tuna/:tuna', function(req, res) {
 	console.log("submit recording of a tuna catch: ");
 	array = req.params.tuna
 	var tuna = array.split("-");
 
-	var options = {
-	    wallet_path: path.join(__dirname, './creds'),
-	    user_id: 'PeerAdmin',
-	    channel_id: 'mychannel',
-	    chaincode_id: 'tuna-app',
-	    peer_url: 'grpc://localhost:7051',
-	    event_url: 'grpc://localhost:7053',
-	    orderer_url: 'grpc://localhost:7050'
-	};
+	var fabric_client = new Fabric_Client();
 
-	var channel = {};
-	var client = null;
-	var targets = [];
+	// setup the fabric network
+	var channel = fabric_client.newChannel('mychannel');
+	var peer = fabric_client.newPeer('grpc://localhost:7051');
+	channel.addPeer(peer);
+	var order = fabric_client.newOrderer('grpc://localhost:7050')
+	channel.addOrderer(order);
+
+	var member_user = null;
+	var store_path = path.join(os.homedir(), '.hfc-key-store');
+	console.log('Store path:'+store_path);
 	var tx_id = null;
-	Promise.resolve().then(() => {
-	    console.log("Create a client and set the wallet location");
-	    client = new hfc();
-	    return hfc.newDefaultKeyValueStore({ path: options.wallet_path });
-	}).then((wallet) => {
-	    console.log("Set wallet path, and associate user ", options.user_id, " with application");
-	    client.setStateStore(wallet);
-	    return client.getUserContext(options.user_id, true);
-	}).then((user) => {
-	    console.log("Check user is enrolled, and set a query URL in the network");
-	    if (user === undefined || user.isEnrolled() === false) {
-	        console.error("User not defined, or not enrolled - error");
-	    }
-	    channel = client.newChannel(options.channel_id);
-	    var peerObj = client.newPeer(options.peer_url);
-	    channel.addPeer(peerObj);
-	    channel.addOrderer(client.newOrderer(options.orderer_url));
-	    targets.push(peerObj);
-	    return;
-	}).then(() => {
-	    tx_id = client.newTransactionID();
-	    console.log("Assigning transaction_id: ", tx_id._transaction_id);
-	   
-	    // recordTuna - requires 7 args, ID, vessel, location, timestamp,holder 
-	    // send proposal to endorser
 
-	    var request = {
-	        targets: targets,
-	        chaincodeId: options.chaincode_id,
+	// create the key value store as defined in the fabric-client/config/default.json 'key-value-store' setting
+	Fabric_Client.newDefaultKeyValueStore({ path: store_path
+	}).then((state_store) => {
+	    // assign the store to the fabric client
+	    fabric_client.setStateStore(state_store);
+	    var crypto_suite = Fabric_Client.newCryptoSuite();
+	    // use the same location for the state store (where the users' certificate are kept)
+	    // and the crypto store (where the users' keys are kept)
+	    var crypto_store = Fabric_Client.newCryptoKeyStore({path: store_path});
+	    crypto_suite.setCryptoKeyStore(crypto_store);
+	    fabric_client.setCryptoSuite(crypto_suite);
+
+	    // get the enrolled user from persistence, this user will sign all requests
+	    return fabric_client.getUserContext('user1', true);
+	}).then((user_from_store) => {
+	    if (user_from_store && user_from_store.isEnrolled()) {
+	        console.log('Successfully loaded user1 from persistence');
+	        member_user = user_from_store;
+	    } else {
+	        throw new Error('Failed to get user1.... run registerUser.js');
+	    }
+
+	    // get a transaction id object based on the current user assigned to fabric client
+	    tx_id = fabric_client.newTransactionID();
+	    console.log("Assigning transaction_id: ", tx_id._transaction_id);
+
+	    // recordTuna - requires 6 args, ID, vessel, location, timestamp,holder - ex: args: ['TUNA10', '0001', 'Hound', '-12.021, 28.012', '1504054225', 'Hansel'], 
+	    // send proposal to endorser
+	    const request = {
+	        //targets : --- letting this default to the peers assigned to the channel
+	        chaincodeId: 'tuna-app',
 	        fcn: 'recordTuna',
-	        args: [tuna[0], tuna[2], tuna[3], tuna[4], tuna[1]],
-	        chainId: options.channel_id,
+	        args: ['TUNA10','239482392', '28.012, 150.225', '0923T', "Hansel"],
+	        chainId: 'mychannel',
 	        txId: tx_id
 	    };
+
+	    // send the transaction proposal to the peers
 	    return channel.sendTransactionProposal(request);
 	}).then((results) => {
 	    var proposalResponses = results[0];
 	    var proposal = results[1];
-	    var header = results[2];
 	    let isProposalGood = false;
 	    if (proposalResponses && proposalResponses[0].response &&
 	        proposalResponses[0].response.status === 200) {
-	        isProposalGood = true;
-	        console.log('transaction proposal was good');
-	    } else {
-	        console.error('transaction proposal was bad');
-	    }
+	            isProposalGood = true;
+	            console.log('Transaction proposal was good');
+	        } else {
+	            console.error('Transaction proposal was bad');
+	        }
 	    if (isProposalGood) {
 	        console.log(util.format(
-	            'Successfully sent Proposal and received ProposalResponse: Status - %s, message - "%s", metadata - "%s", endorsement signature: %s',
-	            proposalResponses[0].response.status, proposalResponses[0].response.message,
-	            proposalResponses[0].response.payload, proposalResponses[0].endorsement.signature));
+	            'Successfully sent Proposal and received ProposalResponse: Status - %s, message - "%s"',
+	            proposalResponses[0].response.status, proposalResponses[0].response.message));
+
+	        // build up the request for the orderer to have the transaction committed
 	        var request = {
 	            proposalResponses: proposalResponses,
-	            proposal: proposal,
-	            header: header
+	            proposal: proposal
 	        };
-	        // set the transaction listener and set a timeout of 30sec
-	        // if the transaction did not get committed within the timeout period,
-	        // fail the test
-	        var transactionID = tx_id.getTransactionID();
-	        var eventPromises = [];
-	        let eh = client.newEventHub();
-	        eh.setPeerAddr(options.event_url);
-	        eh.connect();
 
+	        // set the transaction listener and set a timeout of 30 sec
+	        // if the transaction did not get committed within the timeout period,
+	        // report a TIMEOUT status
+	        var transaction_id_string = tx_id.getTransactionID(); //Get the transaction ID string to be used by the event processing
+	        var promises = [];
+
+	        var sendPromise = channel.sendTransaction(request);
+	        promises.push(sendPromise); //we want the send transaction first, so that we know where to check status
+
+	        // get an eventhub once the fabric client has a user assigned. The user
+	        // is required bacause the event registration must be signed
+	        let event_hub = fabric_client.newEventHub();
+	        event_hub.setPeerAddr('grpc://localhost:7053');
+
+	        // using resolve the promise so that result status may be processed
+	        // under the then clause rather than having the catch clause process
+	        // the status
 	        let txPromise = new Promise((resolve, reject) => {
 	            let handle = setTimeout(() => {
-	                eh.disconnect();
-	                reject();
-	            }, 30000);
-
-	            eh.registerTxEvent(transactionID, (tx, code) => {
+	                event_hub.disconnect();
+	                resolve({event_status : 'TIMEOUT'}); //we could use reject(new Error('Trnasaction did not complete within 30 seconds'));
+	            }, 3000);
+	            event_hub.connect();
+	            event_hub.registerTxEvent(transaction_id_string, (tx, code) => {
+	                // this is the callback for transaction event status
+	                // first some clean up of event listener
 	                clearTimeout(handle);
-	                eh.unregisterTxEvent(transactionID);
-	                eh.disconnect();
+	                event_hub.unregisterTxEvent(transaction_id_string);
+	                event_hub.disconnect();
 
+	                // now let the application know what happened
+	                var return_status = {event_status : code, tx_id : transaction_id_string};
 	                if (code !== 'VALID') {
-	                    console.error(
-	                        'The transaction was invalid, code = ' + code);
-	                    reject();
+	                    console.error('The transaction was invalid, code = ' + code);
+	                    resolve(return_status); // we could use reject(new Error('Problem with the tranaction, event status ::'+code));
 	                } else {
-	                    console.log(
-	                        'The transaction has been committed on peer ' +
-	                        eh._ep._endpoint.addr);
-	                    resolve();
+	                    console.log('The transaction has been committed on peer ' + event_hub._ep._endpoint.addr);
+	                    resolve(return_status);
 	                }
+	            }, (err) => {
+	                //this is the callback if something goes wrong with the event registration or processing
+	                reject(new Error('There was a problem with the eventhub ::'+err));
 	            });
 	        });
-	        eventPromises.push(txPromise);
-	        var sendPromise = channel.sendTransaction(request);
-	        return Promise.all([sendPromise].concat(eventPromises)).then((results) => {
-	            console.log(' event promise all complete and testing complete');
-	            return results[0]; // the first returned value is from the 'sendPromise' which is from the 'sendTransaction()' call
-	        }).catch((err) => {
-	            console.error(
-	                'Failed to send transaction and get notifications within the timeout period.'
-	            );
-	            return 'Failed to send transaction and get notifications within the timeout period.';
-	        });
+	        promises.push(txPromise);
+
+	        return Promise.all(promises);
 	    } else {
-	        console.error(
-	            'Failed to send Proposal or receive valid response. Response null or status is not 200. exiting...'
-	        );
-	        return 'Failed to send Proposal or receive valid response. Response null or status is not 200. exiting...';
+	        console.error('Failed to send Proposal or receive valid response. Response null or status is not 200. exiting...');
+	        throw new Error('Failed to send Proposal or receive valid response. Response null or status is not 200. exiting...');
 	    }
-	}, (err) => {
-	    console.error('Failed to send proposal due to error: ' + err.stack ? err.stack :
-	        err);
-	    return 'Failed to send proposal due to error: ' + err.stack ? err.stack :
-	        err;
-	}).then((response) => {
-	    if (response.status === 'SUCCESS') {
+	}).then((results) => {
+	    console.log('Send transaction promise and event listener promise have completed');
+	    // check the results in the order the promises were added to the promise all list
+	    if (results && results[0] && results[0].status === 'SUCCESS') {
 	        console.log('Successfully sent transaction to the orderer.');
-	        return tx_id.getTransactionID();
 	    } else {
 	        console.error('Failed to order the transaction. Error code: ' + response.status);
-	        return 'Failed to order the transaction. Error code: ' + response.status;
 	    }
-	}, (err) => {
-	    console.error('Failed to send transaction due to error: ' + err.stack ? err
-	        .stack : err);
-	    return 'Failed to send transaction due to error: ' + err.stack ? err.stack :
-	        err;
+
+	    if(results && results[1] && results[1].event_status === 'VALID') {
+	        console.log('Successfully committed the change to the ledger by the peer');
+	    } else {
+	        console.log('Transaction failed to be committed to the ledger due to ::'+results[1].event_status);
+	    }
+	}).catch((err) => {
+	    console.error('Failed to invoke successfully :: ' + err);
 	});
-
-
 
 });
 
@@ -454,15 +475,4 @@ var port = process.env.PORT || 8000;
 app.listen(port,function(){
   console.log("Live on port: " + port);
 });
-
-
-
-
-
-
-
-
-
-
-
 
