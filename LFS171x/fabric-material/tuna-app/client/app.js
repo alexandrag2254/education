@@ -1,7 +1,7 @@
 'use strict';
 var app = angular.module('application', []);
 
-//controller
+//c// Angular Controller
 app.controller('appController', function($scope, appFactory){
 
 	$("#success_holder").hide();
@@ -16,9 +16,7 @@ app.controller('appController', function($scope, appFactory){
 				array.push(data[i].Record);
 			}
 			$scope.all_tuna = array;
-			console.log($scope.all_tuna)
 		});
-
 	}
 
 	$scope.queryTuna = function(){
@@ -26,16 +24,13 @@ app.controller('appController', function($scope, appFactory){
 		var id = $scope.tuna_id;
 
 		appFactory.queryTuna(id, function(data){
-			console.log(data)
 			$scope.query_tuna = data;
 		});
 	}
 
 	$scope.recordTuna = function(){
 
-		var tuna = $scope.tuna.id + "-" + $scope.tuna.holder + "-" + $scope.tuna.vessel + "-" + $scope.tuna.time + "-" + $scope.tuna.location
-
-		appFactory.recordTuna(tuna, function(data){
+		appFactory.recordTuna($scope.tuna, function(data){
 			console.log(data)
 			$scope.create_tuna = data;
 			$("#success_create").show();
@@ -44,43 +39,48 @@ app.controller('appController', function($scope, appFactory){
 
 	$scope.changeHolder = function(){
 
-		var holder = $scope.holder.id + "-" + $scope.holder.name;
-
-		appFactory.changeHolder(holder, function(data){
+		appFactory.changeHolder($scope.holder, function(data){
 			$scope.change_holder = data;
 			$("#success_holder").show();
 		});
 	}
 
-
 });
 
-
-
+// Angular Factory
 app.factory('appFactory', function($http){
 	
 	var factory = {};
 
     factory.queryAllTuna = function(callback){
 
-    	$http.get('/all_tuna/').success(function(output){
+    	$http.get('/get_all_tuna/').success(function(output){
 			callback(output)
 		});
 	}
 
 	factory.queryTuna = function(id, callback){
-    	$http.get('/query_tuna/'+id).success(function(output){
+    	$http.get('/get_tuna/'+id).success(function(output){
 			callback(output)
 		});
 	}
 
-	factory.recordTuna = function(tuna, callback){
-    	$http.get('/record_tuna/'+tuna).success(function(output){
+	factory.recordTuna = function(data, callback){
+
+		data.location = data.longitude + ", "+ data.latitude;
+
+		var tuna = data.id + "-" + data.location + "-" + data.timestamp + "-" + data.holder + "-" + data.vessel;
+		console.log(tuna)
+
+    	$http.get('/add_tuna/'+tuna).success(function(output){
 			callback(output)
 		});
 	}
 
-	factory.changeHolder = function(holder, callback){
+	factory.changeHolder = function(data, callback){
+
+		var holder = data.id + "-" + data.name;
+
     	$http.get('/change_holder/'+holder).success(function(output){
 			callback(output)
 		});
