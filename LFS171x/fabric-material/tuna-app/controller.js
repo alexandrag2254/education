@@ -82,14 +82,12 @@ return{
 		var array = req.params.tuna.split("-");
 		console.log(array);
 
-		var pre_id = array[0]
-		var id_number = parseInt(pre_id)
-		var id_tuna = (id_number-1).toString();
-		var id = "TUNA" + (id_number-1).toString();
+		var key = array[0]
 		var timestamp = array[2]
 		var location = array[1]
 		var vessel = array[4]
 		var holder = array[3]
+
 
 		var fabric_client = new Fabric_Client();
 
@@ -131,13 +129,13 @@ return{
 		    tx_id = fabric_client.newTransactionID();
 		    console.log("Assigning transaction_id: ", tx_id._transaction_id);
 
-		    // recordTuna - requires 6 args, ID, vessel, location, timestamp,holder - ex: args: ['TUNA10', '0001', 'Hound', '-12.021, 28.012', '1504054225', 'Hansel'], 
+		    // recordTuna - requires 5 args, ID, vessel, location, timestamp,holder - ex: args: ['10', 'Hound', '-12.021, 28.012', '1504054225', 'Hansel'], 
 		    // send proposal to endorser
 		    const request = {
 		        //targets : --- letting this default to the peers assigned to the channel
 		        chaincodeId: 'tuna-app',
 		        fcn: 'recordTuna',
-		        args: [id, vessel, location, timestamp, holder],
+		        args: [key, vessel, location, timestamp, holder],
 		        chainId: 'mychannel',
 		        txId: tx_id
 		    };
@@ -240,9 +238,7 @@ return{
 	get_tuna: function(req, res){
 
 		var fabric_client = new Fabric_Client();
-		var id = req.params.id
-		var id_number = parseInt(id)
-		var tuna = "TUNA" + (id_number-1).toString();
+		var key = req.params.id
 
 		// setup the fabric network
 		var channel = fabric_client.newChannel('mychannel');
@@ -277,12 +273,12 @@ return{
 		        throw new Error('Failed to get user1.... run registerUser.js');
 		    }
 
-		    // queryTuna - requires 1 argument, ex: args: ['TUNA4'],
+		    // queryTuna - requires 1 argument, ex: args: ['4'],
 		    const request = {
 		        chaincodeId: 'tuna-app',
 		        txId: tx_id,
 		        fcn: 'queryTuna',
-		        args: [tuna]
+		        args: [key]
 		    };
 
 		    // send the query proposal to the peer
@@ -308,10 +304,7 @@ return{
 		console.log("changing holder of tuna catch: ");
 
 		var array = req.params.holder.split("-");
-		var pre_id = array[0]
-		var id_number = parseInt(pre_id)
-		var id = "TUNA" + (id_number-1).toString();
-
+		var key = array[0]
 		var holder = array[1];
 
 		var fabric_client = new Fabric_Client();
@@ -354,13 +347,13 @@ return{
 		    tx_id = fabric_client.newTransactionID();
 		    console.log("Assigning transaction_id: ", tx_id._transaction_id);
 
-		    // changeTunaHolder - requires 2 args , ex: args: ['TUNA01', 'Barry'],
+		    // changeTunaHolder - requires 2 args , ex: args: ['1', 'Barry'],
 		    // send proposal to endorser
 		    var request = {
 		        //targets : --- letting this default to the peers assigned to the channel
 		        chaincodeId: 'tuna-app',
 		        fcn: 'changeTunaHolder',
-		        args: [id, holder],
+		        args: [key, holder],
 		        chainId: 'mychannel',
 		        txId: tx_id
 		    };

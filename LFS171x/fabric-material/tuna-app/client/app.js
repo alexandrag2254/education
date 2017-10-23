@@ -10,11 +10,16 @@ app.controller('appController', function($scope, appFactory){
 	$scope.queryAllTuna = function(){
 
 		appFactory.queryAllTuna(function(data){
+			console.log(data)
 			var array = [];
 			for (var i = 0; i < data.length; i++){
-				data[i].Record.id = i+1;
+				parseInt(data[i].Key);
+				data[i].Record.Key = parseInt(data[i].Key);
 				array.push(data[i].Record);
 			}
+			array.sort(function(a, b) {
+			    return parseFloat(a.Key) - parseFloat(b.Key);
+			});
 			$scope.all_tuna = array;
 		});
 	}
@@ -31,7 +36,6 @@ app.controller('appController', function($scope, appFactory){
 	$scope.recordTuna = function(){
 
 		appFactory.recordTuna($scope.tuna, function(data){
-			console.log(data)
 			$scope.create_tuna = data;
 			$("#success_create").show();
 		});
@@ -70,7 +74,6 @@ app.factory('appFactory', function($http){
 		data.location = data.longitude + ", "+ data.latitude;
 
 		var tuna = data.id + "-" + data.location + "-" + data.timestamp + "-" + data.holder + "-" + data.vessel;
-		console.log(tuna)
 
     	$http.get('/add_tuna/'+tuna).success(function(output){
 			callback(output)
