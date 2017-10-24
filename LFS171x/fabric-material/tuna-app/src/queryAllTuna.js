@@ -1,7 +1,5 @@
 'use strict';
 /*
-* Copyright IBM Corp All Rights Reserved
-*
 * SPDX-License-Identifier: Apache-2.0
 */
 /*
@@ -14,7 +12,6 @@ var util = require('util');
 var os = require('os');
 
 var fabric_client = new Fabric_Client();
-
 
 // setup the fabric network
 var channel = fabric_client.newChannel('mychannel');
@@ -67,6 +64,7 @@ Fabric_Client.newDefaultKeyValueStore({ path: store_path
             console.error("error from query = ", query_responses[0]);
         } else {
             console.log("Response is ", query_responses[0].toString());
+            res.json(JSON.parse(query_responses[0].toString()));
         }
     } else {
         console.log("No payloads were returned from query");

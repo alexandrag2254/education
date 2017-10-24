@@ -1,7 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+
 'use strict';
+
 var app = angular.module('application', []);
 
-//c// Angular Controller
+// Angular Controller
 app.controller('appController', function($scope, appFactory){
 
 	$("#success_holder").hide();

@@ -1,7 +1,5 @@
 'use strict';
 /*
-* Copyright IBM Corp All Rights Reserved
-*
 * SPDX-License-Identifier: Apache-2.0
 */
 /*
@@ -15,6 +13,7 @@ var os = require('os');
 
 var fabric_client = new Fabric_Client();
 
+var key = req.params.id
 
 // setup the fabric network
 var channel = fabric_client.newChannel('mychannel');
@@ -49,12 +48,12 @@ Fabric_Client.newDefaultKeyValueStore({ path: store_path
         throw new Error('Failed to get user1.... run registerUser.js');
     }
 
-    // queryTuna - requires 1 argument, ex: args: ['TUNA4'],
+    // queryTuna - requires 1 argument, ex: args: ['4'],
     const request = {
         chaincodeId: 'tuna-app',
         txId: tx_id,
         fcn: 'queryTuna',
-        args: ['TUNA1']
+        args: [key]
     };
 
     // send the query proposal to the peer
@@ -67,6 +66,7 @@ Fabric_Client.newDefaultKeyValueStore({ path: store_path
             console.error("error from query = ", query_responses[0]);
         } else {
             console.log("Response is ", query_responses[0].toString());
+            res.send(query_responses[0].toString())
         }
     } else {
         console.log("No payloads were returned from query");
